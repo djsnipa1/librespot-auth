@@ -1,50 +1,30 @@
-FROM archlinux:base
+# Use the official Arch Linux base image
+FROM archlinux:latest
 
-LABEL maintainer="william@dahlen.dev"
-ENV TZ Europe/OSLO
-RUN pacman -Syu --noconfirm
+# Update the package list and install necessary packages
+RUN pacman -Syu --noconfirm \
+    && pacman -S --noconfirm \
+        base-devel \
+        curl \
+        git \
+    && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 
-RUN pacman -S --noconfirm \
-    git \
-    zsh \
-    wget \
-    unzip \
-    sudo \
-    go
+# Create a non-root user and switch to it
+RUN useradd -m vscode \
+    && echo "vscode ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/vscode \
+    && chmod 0440 /etc/sudoers.d/vscode
 
-RUN wget https://github.com/Jguer/yay/releases/download/v11.2.0/yay_11.2.0_x86_64.tar.gz
-RUN tar -xf yay_11.2.0_x86_64.tar.gz
-RUN cp yay_11.2.0_x86_64/yay /usr/local/bin/yay
-RUN rm yay_11.2.0_x86_64.tar.gz && rm -rf yay_11.2.0_x86_64
+# Set the default user to vscode
+USER vscode
 
-ENV USER_NAME cznk
+# Set the working directory
+WORKDIR /home/vscode
 
-RUN useradd --shell /bin/zsh --create-home $USER_NAME
-RUN echo "${USER_NAME}" | usermod -aG wheel $USER_NAME
-RUN echo $USER_NAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USER_NAME && chmod 0440 /etc/sudoers.d/$USER_NAME
+# Copy the entrypoint script
+COPY entrypoint.sh /usr/local/bin/
 
-ENV HOME /home/$USER_NAME
+# Run the entrypoint script
+ENTRYPOINT ["entrypoint.sh"]
 
-USER $USER_NAME:$USER_NAME
-
-
-
-ENV TERM xterm
-
-ENV SHELL /bin/zsh
-
-RUN wget https://github.com/robbyrussell/oh-my-zsh/raw/master/tools/install.sh -O - | zsh || true
-RUN git clone https://github.com/romkatv/powerlevel10k.git ~/.oh-my-zsh/custom/themes/powerlevel10k
-
-RUN cd $HOME && curl -fsSLO https://raw.githubusercontent.com/romkatv/dotfiles-public/master/.purepower
-
-ADD .zshrc $HOME
-ADD .p10k.zsh $HOME
-RUN sudo chown $USER_NAME:$USER_NAME /home/$USER_NAME/.zshrc
-RUN sudo chown $USER_NAME:$USER_NAME /home/$USER_NAME/.p10k.zsh
-RUN git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf
-RUN ~/.fzf/install
-
-WORKDIR /home/$USER_NAME
-
-CMD [ "/bin/zsh" ]
+# Default command
+CMD ["bash"]
